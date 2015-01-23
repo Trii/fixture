@@ -9,9 +9,9 @@ Added in version 1.1
 
 from fixture.loadable import EnvLoadableFixture
 
+
 class EntityMedium(EnvLoadableFixture.StorageMediumAdapter):
-    """
-    Adapts google.appengine.api.datastore.Entity objects and any 
+    """Adapts google.appengine.ext.db and google.appengine.ext.ndb objects and any
     other object that is an instance of Entity
     """        
     def _entities_to_keys(self, mylist):
@@ -19,30 +19,34 @@ class EntityMedium(EnvLoadableFixture.StorageMediumAdapter):
         
         if the value passed in is not a list, this passes it through as is
         """
-        if type(mylist)==type([]):
-            if all(map(lambda x: hasattr(x,'key'),mylist)):
-                return [ent.key() for ent in mylist]
-            else: # ...no type checks...
+        if type(mylist) is list:
+            if all(map(lambda x: hasattr(x, 'key'), mylist)):
+                return [ent.key if not hasattr(ent.key, '__call__') else ent.key() for ent in mylist]
+            else:  # ...no type checks...
                 return mylist
         else:
             return mylist
             
     def clear(self, obj):
         """Delete this entity from the Datastore"""
-        obj.delete()
+        try:
+            # ndb support
+            obj.key.delete()
+        except AttributeError:
+            obj.delete()
         
     def save(self, row, column_vals):
         """Save this entity to the Datastore"""
-        gen=[(k,self._entities_to_keys(v)) for k,v in column_vals]
+        gen = [(k, self._entities_to_keys(v)) for k, v in column_vals]
         entity = self.medium(
             **dict(gen)
         )
         entity.put()
         return entity
-    
+
+
 class GoogleDatastoreFixture(EnvLoadableFixture):
-    """
-    A fixture that knows how to load DataSet objects into Google Datastore `Entity`_ objects.
+    """A fixture that knows how to load DataSet objects into Google Datastore `Entity`_ objects.
     
     >>> from fixture import GoogleDatastoreFixture
     
@@ -76,7 +80,6 @@ class GoogleDatastoreFixture(EnvLoadableFixture):
     
     def commit(self):
         pass
-    
+
     def rollback(self):
         pass
-        
